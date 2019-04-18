@@ -1,0 +1,53 @@
+var a = 10
+var b = 100
+
+var increment = (val value: int): int => {
+    return value + 10;
+}
+
+val object = (): fun((int, bool) => int) => {
+    var x = 0;
+
+    return (val newX: int, val set: bool): int => {
+        val old = x;
+        if set then
+            x = newX;
+        fi
+        return old;
+    };
+}
+
+val main = (val args: string[]): void => {
+    val a = 100;
+    val b = increment(a);
+    increment = (val value: int): int => {return value + 5;};
+    val c = increment(a);
+    printString("b is: " + b + " but c is: " + c);
+
+    val object1 = object();
+    var xValue = object1(0, false);
+    printInt(xValue);
+    xValue = object1(xValue + 10, true);
+    printInt(xValue);
+
+    val level2 = level1();
+    val level3 = level2();
+    val level4 = level3();
+    printInt(level4());
+}
+
+
+val level1 = (): fun(() => fun(() => fun(() => int))) => {
+    val a = 1;
+    val level2 = (): fun(() => fun(() => int)) => {
+        val a = a + 1; //example of variable overriding
+        val level3 = (): fun(() => int) => {
+            val a = a + 1;
+            return (): int => {
+                return a + 1;
+            };
+        };
+        return level3;
+    };
+    return level2;
+}

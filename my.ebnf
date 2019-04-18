@@ -1,0 +1,71 @@
+PDefs.		Program	::= [Def] ;
+terminator Def "" ;
+
+comment "//" ;
+comment "/*" "*/" ;
+
+DField.	Def ::= Mod Ident "=" Exp ;
+
+terminator Stm "" ;
+
+MVal.		Mod ::= "val" ;
+MVar.		Mod ::= "var" ;
+
+SEAsign.	Stm ::= Ident "=" Exp ";" ;
+SArrAsign.	Stm ::= Ident "[" Exp "]" "=" Exp ";" ;
+SExp.		Stm ::= Exp ";" ;
+SDef.		Stm ::= Def ";" ;
+SInc.      	Stm ::= Ident "++"  ";" ;
+SDec.      	Stm ::= Ident "--"  ";" ;
+SReturnE.	Stm ::= "return" Exp ";" ;
+SReturn.	Stm ::= "return" ";" ;
+SWhile.		Stm ::= "while" Exp "do" Stm ;
+SFor.		Stm ::= "for" "val" Ident "=" Exp "to" Exp "do" Stm ;
+SForEach.	Stm ::= "for" "val" Ident ":" Ident "do" Stm ;
+SBlock. 	Stm ::= "{" [Stm] "}" ;
+SIf.		Stm ::= "if" Exp "then" Stm "fi";
+SIfElse.	Stm ::= "if" Exp "then" Stm "else" Stm "fi";
+
+Tbool.		Type ::= "bool" ;
+Tint.		Type ::= "int" ;
+Tvoid.		Type ::= "void" ;
+TString.	Type ::= "string" ;
+TFun.		Type ::= "fun" "(" "(" [Type] ")" "=>" Type ")" ; 
+TArray.		Type ::= Type "[]" ;
+separator Type "," ;
+
+separator Arg "," ;
+ADecl.		Arg ::= Mod Ident ":" Type ;	
+
+internal EHi.	Exp15 ::= "(" Exp ")" ;		
+
+EIdent.		Exp14 ::= Ident ;
+EInt. 		Exp14 ::= Integer ;
+EString.	Exp14 ::= String ;
+ETrue.		Exp14 ::= "true" ;
+EFalse.		Exp14 ::= "false" ;
+EFun.		Exp14 ::= "(" [Arg] ")" ":" Type "=>" Stm ;
+EAppFun.	Exp14 ::= Ident "(" [Exp] ")" ;
+EArrIni.	Exp14 ::= "new" Type "[" Exp "]" ; 
+EArrLen.	Exp14 ::= Ident ".length" ;
+EArrAcc.	Exp14 ::= Ident "[" Exp "]" ;
+
+ENeg.		Exp13 ::= "-" Exp14 ;
+
+EMul. 		Exp12 ::= Exp12 "*" Exp13 ;
+EDiv.		Exp11 ::= Exp11 "/" Exp12 ;
+EPlus. 		Exp10 ::= Exp10 "+" Exp11 ;
+EMinus. 	Exp9 ::= Exp9 "-" Exp10 ;
+
+ENot.		Exp8 ::= "!" Exp9 ;
+ELt.		Exp7 ::= Exp7 ">" Exp8 ;
+EGt.		Exp6 ::= Exp6 "<" Exp7 ;
+EGtEq.		Exp5 ::= Exp5 ">=" Exp6 ;
+ELtEq.		Exp4 ::= Exp4 "<=" Exp5 ;
+EEq.		Exp3 ::= Exp3 "==" Exp4 ;
+ENeq.		Exp2 ::= Exp2 "!=" Exp3 ;
+EAnd.      	Exp1 ::= Exp1 "&&" Exp2 ;
+EOr.       	Exp ::= Exp "||" Exp1 ;	
+
+coercions Exp 15 ;
+separator Exp "," ;

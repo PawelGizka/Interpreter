@@ -1,0 +1,55 @@
+val main = (val args: string[]): void => {
+    val arr = new int[10];
+    arr[0] = 40;
+    arr[1] = 23;
+    arr[2] = 34;
+    arr[3] = 99;
+    arr[4] = 12;
+    arr[5] = 5;
+    arr[6] = 1;
+    arr[7] = 77;
+    arr[8] = 49;
+    arr[9] = 56;
+
+    val ascending = sortInts(arr, (val a: int, val b: int): int => return a - b;);
+    for val a : ascending do printInt(a);
+
+    val descending = sortInts(arr, (val a: int, val b: int): int => return b - a;);
+    for val a : descending do printInt(a);
+}
+
+val sortInts = (val arr: int[], val compare: fun((int, int) => int)): int[] => {
+
+    val partition = (val low: int, val high: int): int => {
+        val pivot = arr[high];
+        var i = low - 1;
+
+        for val j = low to high - 1 do {
+            if compare(arr[j], pivot) <= 0 then {
+                i++;
+                val temp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = temp;
+            }
+            fi
+        }
+
+        val temp = arr[i+1];
+        arr[i+1] = arr[high];
+        arr[high] = temp;
+        return i + 1;
+    };
+
+    val quickSort = (val low: int, val high: int): void => {
+        if low < high then {
+            val pi = partition(low, high);
+
+            quickSort(low, pi - 1);
+            quickSort(pi + 1, high);
+        }
+        fi
+    };
+
+    quickSort(0, arr.length - 1);
+    return arr;
+}
