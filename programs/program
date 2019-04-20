@@ -1,1 +1,14 @@
-val a = true
+val a = false
+
+val func = (): int => {
+    if a then {
+        return 1;
+    }
+    fi
+
+    return 2;
+}
+
+val main = (val args: string[]): void => {
+    printInt(func());
+}

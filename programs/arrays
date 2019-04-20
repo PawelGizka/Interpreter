@@ -1,5 +1,7 @@
 val main = (val args: string[]): void => {
     val arr = new int[10];
+    printInt(arr.length);
+
     arr[0] = 40;
     arr[1] = 23;
     arr[2] = 34;
@@ -11,11 +13,19 @@ val main = (val args: string[]): void => {
     arr[8] = 49;
     arr[9] = 56;
 
+    for val j = 0 to arr.length - 1 do printInt(arr[j]);
+
     val ascending = sortInts(arr, (val a: int, val b: int): int => return a - b;);
-    for val a : ascending do printInt(a);
+    //for val a : ascending do printInt(a);
+
+    printString("Ascending: " );
+    for val j = 0 to ascending.length - 1 do printInt(ascending[j]);
 
     val descending = sortInts(arr, (val a: int, val b: int): int => return b - a;);
-    for val a : descending do printInt(a);
+    //for val a : descending do printInt(a);
+
+    printString("Descending: " );
+    for val j = 0 to descending.length - 1 do printInt(descending[j]);
 }
 
 val sortInts = (val arr: int[], val compare: fun((int, int) => int)): int[] => {

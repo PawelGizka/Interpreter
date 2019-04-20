@@ -191,8 +191,8 @@ checkExpType exp =
     (EGt exp1 exp2) -> checkExpsOfType exp1 exp2 Tint >> return Tbool
     (EGtEq exp1 exp2) -> checkExpsOfType exp1 exp2 Tint >> return Tbool
     (ELtEq exp1 exp2) -> checkExpsOfType exp1 exp2 Tint >> return Tbool
-    (EEq exp1 exp2) -> checkExpsOfTypes exp1 exp2 Tint Tbool
-    (ENeq exp1 exp2) -> checkExpsOfTypes exp1 exp2 Tint Tbool
+    (EEq exp1 exp2) -> checkExpsOfTypes exp1 exp2 Tint Tbool >> return Tbool
+    (ENeq exp1 exp2) -> checkExpsOfTypes exp1 exp2 Tint Tbool >> return Tbool
     (EAnd exp1 exp2) -> checkExpsOfType exp1 exp2 Tbool >> return Tbool
     (EOr exp1 exp2) -> checkExpsOfType exp1 exp2 Tbool >> return Tbool
 
@@ -201,7 +201,7 @@ checkExpsOfTypes exp1 exp2 type1 type2 = do
   exp1Type <- checkExpType exp1
   exp2Type <- checkExpType exp2
   if exp1Type /= exp2Type || (exp1Type /= type1 && exp1Type /= type2)
-    then throwError $ "Expressions must have the same type, either " ++ show exp1 ++ " or " ++ show exp2
+    then throwError $ "Expressions must have the same type, either " ++ show type1 ++ " or " ++ show type2
     else return exp1Type
 
 checkExpsOfType :: Exp -> Exp -> Type -> TypeCheck Type

@@ -1,5 +1,7 @@
 module Main where
 
+import System.Environment
+
 import AbsMy
 import LexMy
 import ParMy
@@ -55,7 +57,8 @@ execStm stm =
       put (state {env = Data.Map.empty})
       let e = Data.Map.union localEnv globalEnv
       result <- local (const e) $ iterStms stms
-      put (state {env = localEnv})
+      changedState <- get
+      put (changedState {env = localEnv})
       return result
     (SIfElse exp stm1 stm2) -> do
       (ValueB cond) <- execExp exp
@@ -82,7 +85,46 @@ execStm stm =
       return Nothing
 
     (SExp exp) -> execExp exp >> return Nothing
+    (SDef def) -> execDef def >> return Nothing
+    (SInc (Ident ident)) -> do
+      (ValueI num) <- getVar ident
+      reasignVar ident (ValueI (num+1))
+      return Nothing
+    (SDec (Ident ident)) -> do
+      (ValueI num) <- getVar ident
+      reasignVar ident (ValueI (num-1))
+      return Nothing
+    (SWhile exp stm) -> iterWhile exp stm
+    (SFor (Ident ident) exp1 exp2 stm) -> do
+      (ValueI from) <- execExp exp1
+      (ValueI to) <- execExp exp2
+      globalEnv <- ask
+      state <- get
+      let localEnv = env state
+      put (state {env = Data.Map.empty})
+      let e = Data.Map.union localEnv globalEnv
+      insertVar ident (ValueI (from - 1))
+      result <- local (const e) $ iterFor to ident stm
+      changedState <- get
+      put (changedState {env = localEnv})
+      return result
 
+--    (SForEach (Ident ident1) (Ident ident2) stm) -> do
+--      (ValueA arr) <- getVar ident1
+--      globalEnv <- ask
+--      state <- get
+--      let localEnv = env state
+--      put (state {env = Data.Map.empty})
+--      let e = Data.Map.union localEnv globalEnv
+--      insertVar ident (ValueI (from - 1))
+--      result <- local (const e) $ iterFor to ident stm
+--      put (state {env = localEnv})
+--      return result
+    (SIf exp stm) -> do
+      (ValueB cond) <- execExp exp
+      if cond
+        then execStm stm
+        else return Nothing
 
 iterStms :: [Stm] -> Computation (Maybe Value)
 iterStms [] = return Nothing
@@ -91,6 +133,28 @@ iterStms (h:tail) = do
   case result of
     Nothing -> iterStms tail
     r@(Just _) -> return r
+
+iterWhile :: Exp -> Stm -> Computation (Maybe Value)
+iterWhile exp stm = do
+  (ValueB cond) <- execExp exp
+  if cond
+    then do
+      value <- execStm stm
+      case value of
+        Nothing -> iterWhile exp stm
+        r@(Just _) -> return r
+    else return Nothing
+
+iterFor :: Integer -> Var -> Stm -> Computation (Maybe Value)
+iterFor to var stm = do
+  (ValueI num) <- getVar var
+  reasignVar var (ValueI (num+1))
+  if num+1 <= to then do
+    value <- execStm stm
+    case value of
+      Nothing -> iterFor to var stm
+      r@(Just _) -> return r
+  else return Nothing
 
 execExp :: Exp -> Computation Value
 execExp exp =
@@ -130,13 +194,13 @@ execExp exp =
 
     (EArrIni typ exp) -> do
       (ValueI size) <- execExp exp
-      let arr = Data.Array.listArray (0, size-1) [ValueV | i <- [0..(size-1)]]
+      let arr = Data.Array.listArray (0, size) [ValueV | i <- [0..size]]
       return (ValueA arr)
 
     (EArrLen (Ident ident)) -> do
       (ValueA arr) <- getVar ident
       let (_, size) = bounds arr
-      return (ValueI (size + 1))
+      return (ValueI size)
 
     (EArrAcc (Ident ident) exp) -> do
       (ValueI number) <- execExp exp
@@ -191,13 +255,13 @@ execIntExp :: Exp -> Exp -> (Integer -> Integer -> Bool) -> Computation Value
 execIntExp exp1 exp2 fun = do
   (ValueI number1) <- execExp exp1
   (ValueI number2) <- execExp exp2
-  return (ValueB (fun number1 number2))
+  return (ValueB (fun number2 number1))
 
 execBoolExp :: Exp -> Exp -> (Bool -> Bool -> Bool) -> Computation Value
 execBoolExp exp1 exp2 fun = do
   (ValueB bool1) <- execExp exp1
   (ValueB bool2) <- execExp exp2
-  return (ValueB (fun bool1 bool2))
+  return (ValueB (fun bool2 bool1))
 
 execNotEqualExp :: Exp -> Exp -> Computation Value
 execNotEqualExp exp1 exp2 = do
@@ -219,28 +283,24 @@ execFun (Fun funEnv funArgs _ stm) args = do
   put (state {env = Data.Map.empty})
   mapM_ (\(ADecl _ (Ident ident) _, value) -> insertVar ident value) (zip funArgs args)
   returnValue <- local (const funEnv) $ execStm stm
-  put (state {env = localEnv})
+  changedState <- get
+  put (changedState {env = localEnv})
   return (fromMaybe ValueV returnValue)
 
-execGlobalDefs :: Def -> Computation ()
-execGlobalDefs def@(DField _ (Ident ident) exp) = do
-  expValue <- execExp exp
-  declareDefType def expValue
-
-declareDefType :: Def -> Value -> Computation ()
-declareDefType (DField mod (Ident ident) _) value = do
+execDef :: Def -> Computation ()
+execDef def@(DField _ (Ident ident) exp) = do
   alreadyDeclared <- isVarDeclared ident
   if alreadyDeclared
     then throwError ("Var already declared" ++ show ident)
-    else insertVar ident value
-
-execProgram :: Program -> Computation ()
-execProgram (PDefs defs) = do
-  mapM_ execGlobalDefs defs --do not check types in functions bodies
-  main <- getVar "main"
-  let (ValueF mainFun) = main
-  let args = Data.Array.listArray (0, 1) [ValueS "program name"]
-  void (execFun mainFun [ValueA args])
+    else do
+      value <- execExp exp
+      case value of
+        (ValueF (Fun env args returnType stm)) -> do
+          loc <- gets nextLoc
+          let newEnv = Data.Map.insert ident loc env
+          --remember funtion loc to allow recursion
+          insertVar ident (ValueF (Fun newEnv args returnType stm))
+        _ -> insertVar ident value
 
 isVarDeclared :: Var -> Computation Bool
 isVarDeclared v = do
@@ -280,13 +340,46 @@ getVarLoc v = do
   let fromGlobal = Data.Map.lookup v globalEnv
   maybe (maybe (throwError $ "Undefined var " ++ v) return fromGlobal) return fromLocal
 
-calc s =
+execProgram :: Program -> Computation ()
+execProgram (PDefs defs) = do
+  mapM_ execDef defs
+  globalEnv <- gets env
+  forM_ (Data.Map.keys globalEnv) $ \name -> do
+    value <- getVar name
+    case value of
+      (ValueF fun@(Fun env args returnType stm)) -> reasignVar name (ValueF (Fun globalEnv args returnType stm))
+      _ -> return ()
+    return ()
+  main <- getVar "main"
+  let (ValueF mainFun) = main
+  let args = Data.Array.listArray (0, 1) [ValueS "program name"]
+  void (execFun mainFun [ValueA args])
+
+exec :: Program -> IO String
+exec program = do
+  result <- runExceptT $ runStateT (runReaderT (execProgram program) Data.Map.empty) emptyComputationState
+  case result of
+    Right b -> return "program completed successfully"
+    Left a -> return $ "RUNTIME: " ++ show a
+
+checkCorrectness :: String -> Either String Program
+checkCorrectness s =
   let ts = myLexer s
   in case pProgram ts of
-  Bad s -> "\nParse              Failed...\n Tokens:" ++ show ts ++ "\n " ++ s
-  Ok tree -> runProgramTypeCheck tree
+  Bad s -> Left $ "\nParse              Failed...\n Tokens:" ++ show ts ++ "\n " ++ s
+  Ok tree ->
+    let result = runProgramTypeCheck tree
+    in if result == "ok"
+        then Right tree
+        else Left result
 
 main :: IO ()
 main = do
-  interact calc
-  putStrLn ""
+  args <- getArgs
+  if length args == 0
+    then putStrLn "you must supply program to run as argument"
+    else do
+      s <- readFile $ head args
+      case checkCorrectness s of
+        (Left error) -> putStrLn error
+        (Right program) -> exec program >>= putStrLn
