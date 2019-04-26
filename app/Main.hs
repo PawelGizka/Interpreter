@@ -50,16 +50,7 @@ execStm stm =
       value <- execExp exp
       return $ Just value
     SReturn -> return (Just ValueV)
-    (SBlock stms) -> do
-      globalEnv <- ask
-      state <- get
-      let localEnv = env state
-      put (state {env = Data.Map.empty})
-      let e = Data.Map.union localEnv globalEnv
-      result <- local (const e) $ iterStms stms
-      changedState <- get
-      put (changedState {env = localEnv})
-      return result
+    (SBlock stms) -> execStmInNewEnv $ iterStms stms
     (SIfElse exp stm1 stm2) -> do
       (ValueB cond) <- execExp exp
       if cond
@@ -76,9 +67,9 @@ execStm stm =
       value <- execExp exp2
       (ValueA arr) <- getVar ident
       let (_, size) = bounds arr
-      when (number >= size) $ throwError $ "Array " ++ ident ++
+      when (number >= (size+1)) $ throwError $ "Array " ++ ident ++
                               " index out of range, array size " ++
-                                show size ++ " access " ++ show number
+                                show (size+1) ++ " access " ++ show number
 
       let newArr = (//) arr [(number, value)]
       reasignVar ident (ValueA newArr)
@@ -95,36 +86,34 @@ execStm stm =
       reasignVar ident (ValueI (num-1))
       return Nothing
     (SWhile exp stm) -> iterWhile exp stm
-    (SFor (Ident ident) exp1 exp2 stm) -> do
+    (SFor (Ident ident) exp1 exp2 stm) -> execStmInNewEnv $ do
       (ValueI from) <- execExp exp1
       (ValueI to) <- execExp exp2
-      globalEnv <- ask
-      state <- get
-      let localEnv = env state
-      put (state {env = Data.Map.empty})
-      let e = Data.Map.union localEnv globalEnv
       insertVar ident (ValueI (from - 1))
-      result <- local (const e) $ iterFor to ident stm
-      changedState <- get
-      put (changedState {env = localEnv})
-      return result
+      iterFor to ident stm
 
---    (SForEach (Ident ident1) (Ident ident2) stm) -> do
---      (ValueA arr) <- getVar ident1
---      globalEnv <- ask
---      state <- get
---      let localEnv = env state
---      put (state {env = Data.Map.empty})
---      let e = Data.Map.union localEnv globalEnv
---      insertVar ident (ValueI (from - 1))
---      result <- local (const e) $ iterFor to ident stm
---      put (state {env = localEnv})
---      return result
+    (SForEach (Ident ident1) (Ident ident2) stm) -> execStmInNewEnv $ do
+      (ValueA arr) <- getVar ident2
+      insertVar ident1 ValueV
+      iterForEach (Data.Array.elems arr) stm ident1
+
     (SIf exp stm) -> do
       (ValueB cond) <- execExp exp
       if cond
         then execStm stm
         else return Nothing
+
+execStmInNewEnv :: Computation (Maybe Value) -> Computation (Maybe Value)
+execStmInNewEnv comp = do
+  globalEnv <- ask
+  state <- get
+  let localEnv = env state
+  put (state {env = Data.Map.empty})
+  let e = Data.Map.union localEnv globalEnv
+  result <- local (const e) comp
+  changedState <- get
+  put (changedState {env = localEnv})
+  return result
 
 iterStms :: [Stm] -> Computation (Maybe Value)
 iterStms [] = return Nothing
@@ -155,6 +144,15 @@ iterFor to var stm = do
       Nothing -> iterFor to var stm
       r@(Just _) -> return r
   else return Nothing
+
+iterForEach :: [Value] -> Stm -> Var -> Computation (Maybe Value)
+iterForEach [] _  _ = return Nothing
+iterForEach (h:tail) stm ident = do
+  reasignVar ident h
+  result <- execStm stm
+  case result of
+    Nothing -> iterForEach tail stm ident
+    r@(Just _) -> return r
 
 execExp :: Exp -> Computation Value
 execExp exp =
@@ -194,21 +192,21 @@ execExp exp =
 
     (EArrIni typ exp) -> do
       (ValueI size) <- execExp exp
-      let arr = Data.Array.listArray (0, size) [ValueV | i <- [0..size]]
+      let arr = Data.Array.listArray (0, size-1) [ValueV | i <- [0..(size-1)]]
       return (ValueA arr)
 
     (EArrLen (Ident ident)) -> do
       (ValueA arr) <- getVar ident
       let (_, size) = bounds arr
-      return (ValueI size)
+      return (ValueI (size+1))
 
     (EArrAcc (Ident ident) exp) -> do
       (ValueI number) <- execExp exp
       (ValueA arr) <- getVar ident
       let (_, size) = bounds arr
-      when (number >= size) $ throwError $ "Array " ++ ident ++
+      when (number >= (size+1)) $ throwError $ "Array " ++ ident ++
                               " index out of range, array size " ++
-                                show size ++ " access " ++ show number
+                                show (size+1) ++ " access " ++ show number
       return (arr Data.Array.! number)
 
     (ENeg exp) -> do
@@ -340,8 +338,8 @@ getVarLoc v = do
   let fromGlobal = Data.Map.lookup v globalEnv
   maybe (maybe (throwError $ "Undefined var " ++ v) return fromGlobal) return fromLocal
 
-execProgram :: Program -> Computation ()
-execProgram (PDefs defs) = do
+execProgram :: Program -> [String] -> Computation ()
+execProgram (PDefs defs) args = do
   mapM_ execDef defs
   globalEnv <- gets env
   forM_ (Data.Map.keys globalEnv) $ \name -> do
@@ -352,12 +350,12 @@ execProgram (PDefs defs) = do
     return ()
   main <- getVar "main"
   let (ValueF mainFun) = main
-  let args = Data.Array.listArray (0, 1) [ValueS "program name"]
-  void (execFun mainFun [ValueA args])
+  let parsedArgs = Data.Array.listArray (0, toInteger $ length args - 1) (Prelude.map ValueS args)
+  void (execFun mainFun [ValueA parsedArgs])
 
-exec :: Program -> IO String
-exec program = do
-  result <- runExceptT $ runStateT (runReaderT (execProgram program) Data.Map.empty) emptyComputationState
+exec :: Program -> [String] -> IO String
+exec program args = do
+  result <- runExceptT $ runStateT (runReaderT (execProgram program args) Data.Map.empty) emptyComputationState
   case result of
     Right b -> return "program completed successfully"
     Left a -> return $ "RUNTIME: " ++ show a
@@ -382,4 +380,4 @@ main = do
       s <- readFile $ head args
       case checkCorrectness s of
         (Left error) -> putStrLn error
-        (Right program) -> exec program >>= putStrLn
+        (Right program) -> exec program args >>= putStrLn
