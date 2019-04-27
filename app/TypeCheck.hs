@@ -160,7 +160,7 @@ checkExpType exp =
       expType <- checkExpType exp
       if expType /= Tint
         then throwError $ "Array can be initiated only with Int, but actual type was: " ++ show expType
-        else return (TArray expType)
+        else return (TArray typ)
     (EArrLen (Ident ident)) -> do
       (mod, typ) <- getVarType ident
       case typ of

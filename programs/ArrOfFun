@@ -1,0 +1,23 @@
+
+val main = (val args: string[]): void => {
+    val arr = new fun((int) => int)[10];
+    val modify = new fun((int) => void)[10];
+
+    for val i = 1 to 10 do {
+        var b = i;
+        arr[i-1] = (val value: int): int => {
+            return (value + b);
+        };
+
+        modify[i-1] = (val value: int): void => {
+            b = value;
+        };
+    }
+
+    val func = modify[6];
+    func(100);
+
+    val b = 10;
+    for val func : arr do
+        printInt(func(b));
+}

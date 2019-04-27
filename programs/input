@@ -1,0 +1,14 @@
+val main = (val args: string[]): void => {
+    printString("how many strings to collect?");
+
+    val b = readInt();
+
+    val arr = new string [b];
+
+    for val i = 0 to b - 1 do {
+        arr[i] = readString();
+    }
+
+    for val s : arr do
+        printString(s);
+}

@@ -17,6 +17,7 @@ import Control.Monad.Except
 import Control.Monad
 
 import TypeCheck
+import Text.Read (readMaybe)
 
 type Var = String
 type Loc = Integer
@@ -183,8 +184,10 @@ execExp exp =
         return (ValueS str)
       else if ident == "readInt" then do
         str <- liftIO getLine
-        let int = read str :: Integer
-        return (ValueI int)
+        let parsed = readMaybe str :: Maybe Integer
+        case parsed of
+          Just int -> return (ValueI int)
+          Nothing -> throwError $ "readInt error, expected int but was " ++ str
       else do
         funFetched <- getVar ident
         let (ValueF fun) = funFetched
