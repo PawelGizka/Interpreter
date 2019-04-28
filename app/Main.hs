@@ -24,8 +24,8 @@ type Loc = Integer
 type Env = Map Var Loc
 type GlobalEnv = Env
 
-data Fun = Fun Env [Arg] Type Stm
-data Value = ValueS String | ValueI Integer | ValueB Bool | ValueF Fun | ValueA (Array Integer Value) | ValueV
+data Fun = Fun Env [Arg] Type Stm deriving(Eq)
+data Value = ValueS String | ValueI Integer | ValueB Bool | ValueF Fun | ValueA (Array Integer Value) | ValueV deriving(Eq)
 
 instance Show Value where
   show (ValueS str) = str
@@ -210,7 +210,10 @@ execExp exp =
       when (number >= (size+1)) $ throwError $ "Array " ++ ident ++
                               " index out of range, array size " ++
                                 show (size+1) ++ " access " ++ show number
-      return (arr Data.Array.! number)
+      let elem = arr Data.Array.! number
+      when (elem == ValueV) $ throwError $ "Array " ++ ident ++
+                            " element of index " ++ show number ++ " was not initialized"
+      return elem
 
     (ENeg exp) -> do
       (ValueI number) <- execExp exp
@@ -273,9 +276,7 @@ execEqualExp :: Exp -> Exp -> Computation Value
 execEqualExp exp1 exp2 = do
   value1 <- execExp exp1
   value2 <- execExp exp2
-  case (value1, value2) of
-    (ValueI num1, ValueI num2) -> return (ValueB (num1 == num2))
-    (ValueB bool1, ValueB bool2) -> return (ValueB (bool1 == bool2))
+  return (ValueB (value1 == value2))
 
 execFun :: Fun -> [Value] -> Computation Value
 execFun (Fun funEnv funArgs _ stm) args = do

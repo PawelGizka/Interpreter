@@ -2,9 +2,24 @@ val a = "pawel"
 
 val b = 5
 
-val c = true
+var c = true
+
+val func = (): void => {
+    c = false;
+}
+
+val func2 = (): void => {
+    c = false;
+    c = true;
+}
 
 val main = (val args: string[]): void => {
     printString("hello world, my args:");
     for val arg : args do printString("arg: " + arg);
+
+    val command = readString();
+
+    if command == "print" + "Hello" then
+        printString("command print hello");
+    fi
 }

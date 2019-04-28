@@ -158,9 +158,9 @@ checkExpType exp =
         _ -> throwError $ ident ++ " is not a function"
     (EArrIni typ exp) -> do
       expType <- checkExpType exp
-      if expType /= Tint
-        then throwError $ "Array can be initiated only with Int, but actual type was: " ++ show expType
-        else return (TArray typ)
+      when (expType /= Tint) $ throwError $ "Array can be indexed only with Int, but actual type was: " ++ show expType
+      when (typ == Tvoid) $ throwError "Cannot create array of void"
+      return (TArray typ)
     (EArrLen (Ident ident)) -> do
       (mod, typ) <- getVarType ident
       case typ of
@@ -174,9 +174,9 @@ checkExpType exp =
         else case typ of
                (TArray arrType) -> return arrType
                _ -> throwError $ "Array access on " ++ ident ++ " of type " ++ show typ
-    (ENeg exp) -> checkExpOfType exp Tint
-    (EMul exp1 exp2) -> checkExpsOfType exp1 exp2 Tint
-    (EDiv exp1 exp2) -> checkExpsOfType exp1 exp2 Tint
+    (ENeg exp) -> checkExpOfType exp Tint >> return Tint
+    (EMul exp1 exp2) -> checkExpsOfType exp1 exp2 Tint >> return Tint
+    (EDiv exp1 exp2) -> checkExpsOfType exp1 exp2 Tint >> return Tint
     (EPlus exp1 exp2) -> do
       exp1Type <- checkExpType exp1
       exp2Type <- checkExpType exp2
@@ -185,34 +185,32 @@ checkExpType exp =
       else throwError $ "Expressions in EPlus must have both type Tint or one of them " ++
                         "must have type Tstring but was " ++ show exp1 ++ " and " ++ show exp2
 
-    (EMinus exp1 exp2) -> checkExpsOfType exp1 exp2 Tint
-    (ENot exp) -> checkExpOfType exp Tint
+    (EMinus exp1 exp2) -> checkExpsOfType exp1 exp2 Tint >> return Tint
+    (ENot exp) -> checkExpOfType exp Tbool >> return Tbool
     (ELt exp1 exp2) -> checkExpsOfType exp1 exp2 Tint >> return Tbool
     (EGt exp1 exp2) -> checkExpsOfType exp1 exp2 Tint >> return Tbool
     (EGtEq exp1 exp2) -> checkExpsOfType exp1 exp2 Tint >> return Tbool
     (ELtEq exp1 exp2) -> checkExpsOfType exp1 exp2 Tint >> return Tbool
-    (EEq exp1 exp2) -> checkExpsOfTypes exp1 exp2 Tint Tbool >> return Tbool
-    (ENeq exp1 exp2) -> checkExpsOfTypes exp1 exp2 Tint Tbool >> return Tbool
+    (EEq exp1 exp2) -> checkExpsOfSameTypes exp1 exp2 >> return Tbool
+    (ENeq exp1 exp2) -> checkExpsOfSameTypes exp1 exp2 >> return Tbool
     (EAnd exp1 exp2) -> checkExpsOfType exp1 exp2 Tbool >> return Tbool
     (EOr exp1 exp2) -> checkExpsOfType exp1 exp2 Tbool >> return Tbool
 
-checkExpsOfTypes :: Exp -> Exp -> Type -> Type -> TypeCheck Type
-checkExpsOfTypes exp1 exp2 type1 type2 = do
+checkExpsOfSameTypes :: Exp -> Exp -> TypeCheck ()
+checkExpsOfSameTypes exp1 exp2 = do
   exp1Type <- checkExpType exp1
   exp2Type <- checkExpType exp2
-  if exp1Type /= exp2Type || (exp1Type /= type1 && exp1Type /= type2)
-    then throwError $ "Expressions must have the same type, either " ++ show type1 ++ " or " ++ show type2
-    else return exp1Type
+  when (exp1Type /= exp2Type) $
+    throwError $ "Expressions must have the same type, either " ++ show exp1Type ++ " or " ++ show exp2Type
 
-checkExpsOfType :: Exp -> Exp -> Type -> TypeCheck Type
+checkExpsOfType :: Exp -> Exp -> Type -> TypeCheck ()
 checkExpsOfType exp1 exp2 typ = checkExpOfType exp1 typ >> checkExpOfType exp2 typ
 
-checkExpOfType :: Exp -> Type -> TypeCheck Type
-checkExpOfType exp typ= do
+checkExpOfType :: Exp -> Type -> TypeCheck ()
+checkExpOfType exp typ = do
   expType <- checkExpType exp
-  if expType /= typ
-    then throwError $ "Expected expression of type " ++ show typ ++ " but was " ++ show expType ++ " in " ++ show exp
-    else return Tint
+  when (expType /= typ) $
+    throwError $ "Expected expression of type " ++ show typ ++ " but was " ++ show expType ++ " in " ++ show exp
 
 checkDefType :: Def -> TypeCheck ()
 checkDefType def@(DField _ _ exp@(EFun args returnType _)) = do
@@ -242,7 +240,7 @@ declareDefType (DField mod (Ident ident) _) expType = do
     else setVarType ident mod expType
 
 checkGlobalFunType :: Def -> TypeCheck ()
-checkGlobalFunType (DField _ _ exp@EFun {}) = checkExpType exp >> return ()
+checkGlobalFunType (DField _ _ exp@EFun {}) = void (checkExpType exp)
 checkGlobalFunType _ = return ()
 
 checkProgramType :: Program -> TypeCheck ()
