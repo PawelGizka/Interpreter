@@ -1,0 +1,35 @@
+//test function closures after garbage collection
+val object = (): fun((int, bool) => int) => {
+    var x = 0;
+
+    return (val newX: int, val set: bool): int => {
+        val old = x;
+        if set then
+            x = newX;
+        fi
+        return old;
+    };
+}
+
+
+val main = (val args: string[]): void => {
+
+    val object1 = object();
+    var xValue = object1(0, false);
+    printInt(xValue);
+    object1(xValue + 10, true);
+    xValue = object1(0, false);
+    printInt(xValue);
+
+
+    for val i = 0 to 5000000 do {
+        val arr = new int[100000];
+    }
+
+    object1(xValue + 10, true);
+    xValue = object1(0, false);
+    printInt(xValue);
+
+    printString("end");
+    val command = readString();
+}

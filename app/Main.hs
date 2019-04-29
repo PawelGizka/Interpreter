@@ -17,15 +17,12 @@ import Control.Monad.Except
 import Control.Monad
 
 import TypeCheck
+import Common
+import GarbageCollector
 import Text.Read (readMaybe)
 
-type Var = String
-type Loc = Integer
-type Env = Map Var Loc
-type GlobalEnv = Env
 
-data Fun = Fun Env [Arg] Type Stm deriving(Eq)
-data Value = ValueS String | ValueI Integer | ValueB Bool | ValueF Fun | ValueA (Array Integer Value) | ValueV deriving(Eq)
+data GlobalEnv = GlobalEnv {all :: [(String, Env)], visible :: Env}
 
 instance Show Value where
   show (ValueS str) = str
@@ -35,8 +32,6 @@ instance Show Value where
     "fun((" ++ show (Prelude.map (\(ADecl mod (Ident ident) typ) -> show mod ++ " " ++ ident ++ ": " ++ show typ) args)
       ++ ") => " ++ show returnType ++ ")"
   show (ValueA arr) = "Array(" ++ show (Prelude.map (\elem -> show elem ++ ",") $ Data.Array.elems arr) ++ ")"
-
-type Store = Map Loc Value
 
 data ComputationState = ComputationState {store :: Store, env :: Env, nextLoc :: Loc}
 emptyComputationState = ComputationState Data.Map.empty Data.Map.empty 0
@@ -51,7 +46,7 @@ execStm stm =
       value <- execExp exp
       return $ Just value
     SReturn -> return (Just ValueV)
-    (SBlock stms) -> execStmInNewEnv $ iterStms stms
+    (SBlock stms) -> execStmInNewEnv "Block" $ iterStms stms
     (SIfElse exp stm1 stm2) -> do
       (ValueB cond) <- execExp exp
       if cond
@@ -87,13 +82,13 @@ execStm stm =
       reasignVar ident (ValueI (num-1))
       return Nothing
     (SWhile exp stm) -> iterWhile exp stm
-    (SFor (Ident ident) exp1 exp2 stm) -> execStmInNewEnv $ do
+    (SFor (Ident ident) exp1 exp2 stm) -> execStmInNewEnv "For" $ do
       (ValueI from) <- execExp exp1
       (ValueI to) <- execExp exp2
       insertVar ident (ValueI (from - 1))
       iterFor to ident stm
 
-    (SForEach (Ident ident1) (Ident ident2) stm) -> execStmInNewEnv $ do
+    (SForEach (Ident ident1) (Ident ident2) stm) -> execStmInNewEnv "Foreach"$ do
       (ValueA arr) <- getVar ident2
       insertVar ident1 ValueV
       iterForEach (Data.Array.elems arr) stm ident1
@@ -104,14 +99,15 @@ execStm stm =
         then execStm stm
         else return Nothing
 
-execStmInNewEnv :: Computation (Maybe Value) -> Computation (Maybe Value)
-execStmInNewEnv comp = do
+execStmInNewEnv :: String -> Computation (Maybe Value) -> Computation (Maybe Value)
+execStmInNewEnv stmName comp = do
   globalEnv <- ask
   state <- get
   let localEnv = env state
   put (state {env = Data.Map.empty})
-  let e = Data.Map.union localEnv globalEnv
-  result <- local (const e) comp
+  let e = Data.Map.union localEnv (visible globalEnv)
+  let newGlobalEnv = GlobalEnv ((stmName, localEnv) : Main.all globalEnv) e
+  result <- local (const newGlobalEnv) comp
   changedState <- get
   put (changedState {env = localEnv})
   return result
@@ -165,7 +161,7 @@ execExp exp =
     ETrue -> return (ValueB True)
     EFalse -> return (ValueB False)
     (EFun args returnType stm) -> do
-      globalEnv <- ask
+      globalEnv <- asks visible
       localEnv <- gets env
       let funEnv = Data.Map.union localEnv globalEnv
       return (ValueF $ Fun funEnv args returnType stm)
@@ -191,7 +187,7 @@ execExp exp =
       else do
         funFetched <- getVar ident
         let (ValueF fun) = funFetched
-        execFun fun values
+        execFun ident fun values
 
     (EArrIni typ exp) -> do
       (ValueI size) <- execExp exp
@@ -278,13 +274,15 @@ execEqualExp exp1 exp2 = do
   value2 <- execExp exp2
   return (ValueB (value1 == value2))
 
-execFun :: Fun -> [Value] -> Computation Value
-execFun (Fun funEnv funArgs _ stm) args = do
+execFun :: String -> Fun -> [Value] -> Computation Value
+execFun funName (Fun funEnv funArgs _ stm) args = do
   state <- get
+  globalEnv <- ask
   let localEnv = env state
   put (state {env = Data.Map.empty})
   mapM_ (\(ADecl _ (Ident ident) _, value) -> insertVar ident value) (zip funArgs args)
-  returnValue <- local (const funEnv) $ execStm stm
+  let newGlobalEnv = GlobalEnv (("Function: " ++ funName, funEnv) : Main.all globalEnv) funEnv
+  returnValue <- local (const newGlobalEnv) $ execStm stm
   changedState <- get
   put (changedState {env = localEnv})
   return (fromMaybe ValueV returnValue)
@@ -323,8 +321,15 @@ insertVar var val = do
   let en = env state
   let st = store state
   let nL = nextLoc state
-  put (ComputationState (Data.Map.insert nL val st) (Data.Map.insert var nL en) (nL + 1))
-  return ()
+  let newStore = Data.Map.insert nL val st
+  let newEnv = Data.Map.insert var nL en
+  put (ComputationState newStore newEnv (nL + 1))
+  when (rem (nL + 1) 1000000 == 0) $ do
+    allGlobal <- asks Main.all
+    let allGlobalEnvs = Prelude.map snd allGlobal
+    let garbageCollectedStore = performGarbageCollection (newEnv : allGlobalEnvs) newStore
+    liftIO $ print (Data.Map.size garbageCollectedStore)
+    put (ComputationState garbageCollectedStore newEnv (nL + 1))
 
 reasignVar :: Var -> Value -> Computation()
 reasignVar var val = do
@@ -337,7 +342,7 @@ reasignVar var val = do
 getVarLoc :: Var -> Computation Loc
 getVarLoc v = do
   localEnv <- gets env
-  globalEnv <- ask
+  globalEnv <- asks visible
   let fromLocal = Data.Map.lookup v localEnv
   let fromGlobal = Data.Map.lookup v globalEnv
   maybe (maybe (throwError $ "Undefined var " ++ v) return fromGlobal) return fromLocal
@@ -355,11 +360,11 @@ execProgram (PDefs defs) args = do
   main <- getVar "main"
   let (ValueF mainFun) = main
   let parsedArgs = Data.Array.listArray (0, toInteger $ length args - 1) (Prelude.map ValueS args)
-  void (execFun mainFun [ValueA parsedArgs])
+  void (execFun "main" mainFun [ValueA parsedArgs])
 
 exec :: Program -> [String] -> IO String
 exec program args = do
-  result <- runExceptT $ runStateT (runReaderT (execProgram program args) Data.Map.empty) emptyComputationState
+  result <- runExceptT $ runStateT (runReaderT (execProgram program args) (GlobalEnv [] Data.Map.empty)) emptyComputationState
   case result of
     Right b -> return "program completed successfully"
     Left a -> return $ "RUNTIME: " ++ show a
