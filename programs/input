@@ -5,6 +5,9 @@ val main = (val args: string[]): void => {
 
     val arr = new string [b];
 
+    for val s : arr do
+        printString(s);
+
     for val i = 0 to b - 1 do {
         arr[i] = readString();
     }

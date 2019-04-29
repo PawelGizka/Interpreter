@@ -145,8 +145,12 @@ iterFor to var stm = do
 iterForEach :: [Value] -> Stm -> Var -> Computation (Maybe Value)
 iterForEach [] _  _ = return Nothing
 iterForEach (h:tail) stm ident = do
-  reasignVar ident h
-  result <- execStm stm
+  result <- case h of
+    ValueV -> return Nothing --skip not initialized elements
+    _ -> do
+      reasignVar ident h
+      execStm stm
+
   case result of
     Nothing -> iterForEach tail stm ident
     r@(Just _) -> return r
@@ -328,7 +332,6 @@ insertVar var val = do
     allGlobal <- asks Main.all
     let allGlobalEnvs = Prelude.map snd allGlobal
     let garbageCollectedStore = performGarbageCollection (newEnv : allGlobalEnvs) newStore
-    liftIO $ print (Data.Map.size garbageCollectedStore)
     put (ComputationState garbageCollectedStore newEnv (nL + 1))
 
 reasignVar :: Var -> Value -> Computation()
