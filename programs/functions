@@ -1,3 +1,5 @@
+//functions as values, returning functions, closures,
+//arbitrarily nested functions with correct static binding,
 var a = 10
 var b = 100
 

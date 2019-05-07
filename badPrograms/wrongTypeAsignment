@@ -1,0 +1,5 @@
+val main = (val args: string[]): void => {
+    var a = "Haskell";
+    var b = 2019;
+    a = b;
+}

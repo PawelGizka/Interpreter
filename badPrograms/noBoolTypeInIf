@@ -1,0 +1,5 @@
+
+val main = (val args: string[]): void => {
+    val a = 0;
+    if a then printString("it works"); fi
+}

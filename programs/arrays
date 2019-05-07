@@ -1,3 +1,4 @@
+//arrays, anonymous functions, nested functions,
 val main = (val args: string[]): void => {
     val arr = new int[10];
     printInt(arr.length);

@@ -1,3 +1,4 @@
+//recursive functions, while loop,
 val main = (val args: string[]): void => {
     printInt(fact(5));
     printInt(factRec(7));

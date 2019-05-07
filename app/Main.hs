@@ -20,6 +20,7 @@ import TypeCheck
 import Common
 import GarbageCollector
 import Text.Read (readMaybe)
+import System.IO (hPutStrLn, stderr)
 
 
 data GlobalEnv = GlobalEnv {all :: [(String, Env)], visible :: Env}
@@ -365,23 +366,22 @@ execProgram (PDefs defs) args = do
   let parsedArgs = Data.Array.listArray (0, toInteger $ length args - 1) (Prelude.map ValueS args)
   void (execFun "main" mainFun [ValueA parsedArgs])
 
-exec :: Program -> [String] -> IO String
+exec :: Program -> [String] -> IO ()
 exec program args = do
   result <- runExceptT $ runStateT (runReaderT (execProgram program args) (GlobalEnv [] Data.Map.empty)) emptyComputationState
   case result of
-    Right b -> return "program completed successfully"
-    Left a -> return $ "RUNTIME: " ++ show a
+    Right b -> putStrLn "program completed successfully"
+    Left a -> hPutStrLn stderr $ "RUNTIME: " ++ a
 
 checkCorrectness :: String -> Either String Program
 checkCorrectness s =
   let ts = myLexer s
   in case pProgram ts of
-  Bad s -> Left $ "\nParse              Failed...\n Tokens:" ++ show ts ++ "\n " ++ s
+  Bad s -> Left $ "Parsing error\n Tokens:" ++ show ts ++ "\n " ++ s
   Ok tree ->
-    let result = runProgramTypeCheck tree
-    in if result == "ok"
-        then Right tree
-        else Left result
+    case runProgramTypeCheck tree of
+      Right _ -> Right tree
+      Left e -> Left e
 
 main :: IO ()
 main = do
@@ -391,5 +391,5 @@ main = do
     else do
       s <- readFile $ head args
       case checkCorrectness s of
-        (Left error) -> putStrLn error
-        (Right program) -> exec program args >>= putStrLn
+        (Left error) -> hPutStrLn stderr error
+        (Right program) -> exec program args

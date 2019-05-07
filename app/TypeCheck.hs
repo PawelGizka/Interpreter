@@ -28,15 +28,10 @@ checkStmType stm funRetType mustBeRet =
       when (funRetType /= Tvoid) $
       throwError $ "Function has got return type " ++ show funRetType ++ " but actual was Tvoid"
 
-    (SBlock stms) | not mustBeRet || not (Prelude.null stms) -> do
-      env <- ask
-      state <- get
-      put Data.Map.empty
-      let newEnv = Data.Map.union state env
-      when (length stms > 0) $
-        local (const newEnv) $ mapM_ (\stm -> checkStmType stm funRetType False) (init stms) >>
+    (SBlock stms) | not mustBeRet || not (Prelude.null stms) -> checkInNewEnv $ do
+      when (length stms > 0) $ do
+        mapM_ (\stm -> checkStmType stm funRetType False) (init stms)
         checkStmType (last stms) funRetType mustBeRet
-      put state
 
     (SIfElse exp stm1 stm2) -> do
       expType <- checkExpType exp
@@ -78,27 +73,17 @@ checkStmType stm funRetType mustBeRet =
       exp2Type <- checkExpType exp2
       if exp1Type /= Tint
         then throwError $ "Expression in For must have type Tint but was " ++ show exp1Type
-        else if exp2Type /= Tint
-               then throwError $ "Expression in For must have type Tint but was " ++ show exp2Type
-               else do
-                 env <- ask
-                 state <- get
-                 put Data.Map.empty
-                 setVarType ident MVal Tint
-                 let newEnv = Data.Map.union state env
-                 local (const newEnv) $ checkStmType stm funRetType False
-                 put state
+      else if exp2Type /= Tint
+        then throwError $ "Expression in For must have type Tint but was " ++ show exp2Type
+      else checkInNewEnv $ do
+        setVarType ident MVal Tint
+        checkStmType stm funRetType False
     (SForEach (Ident ident1) (Ident ident2) stm) -> do
       (_, typ) <- getVarType ident2
       case typ of
-        (TArray arrType) -> do
-          env <- ask
-          state <- get
-          put Data.Map.empty
+        (TArray arrType) -> checkInNewEnv $ do
           setVarType ident1 MVal arrType
-          let newEnv = Data.Map.union state env
-          local (const newEnv) $ checkStmType stm funRetType False
-          put state
+          checkStmType stm funRetType False
         _ -> throwError $ "Can iterate only through array, but was" ++ show typ
     (SIf exp stm) -> do
       expType <- checkExpType exp
@@ -126,14 +111,10 @@ checkExpType exp =
     ETrue -> return Tbool
     EFalse -> return Tbool
     (EFun args returnType stm) -> do
-      env <- ask
-      state <- get
-      put Data.Map.empty
-      mapM_ (\(ADecl mod (Ident ident) typ) -> setVarType ident mod typ) args
-      let newEnv = Data.Map.union state env
-      let funMustHaveReturn = returnType /= Tvoid
-      local (const newEnv) $ checkStmType stm returnType funMustHaveReturn
-      put state
+      checkInNewEnv $ do
+        mapM_ (\(ADecl mod (Ident ident) typ) -> setVarType ident mod typ) args
+        let funMustHaveReturn = returnType /= Tvoid
+        checkStmType stm returnType funMustHaveReturn
       let types = Prelude.map (\(ADecl _ _ typ) -> typ) args
       return (TFun types returnType)
     (EAppFun (Ident ident) exps) -> do
@@ -212,6 +193,15 @@ checkExpOfType exp typ = do
   when (expType /= typ) $
     throwError $ "Expected expression of type " ++ show typ ++ " but was " ++ show expType ++ " in " ++ show exp
 
+checkInNewEnv :: TypeCheck () -> TypeCheck ()
+checkInNewEnv check = do
+  env <- ask
+  state <- get
+  put Data.Map.empty
+  let newEnv = Data.Map.union state env
+  local (const newEnv) check
+  put state
+
 checkDefType :: Def -> TypeCheck ()
 checkDefType def@(DField _ _ exp@(EFun args returnType _)) = do
   --function name must be in scope before checking function body
@@ -255,10 +245,12 @@ initialEnv = Data.Map.fromList [
   ("readInt", (MVal, TFun [] Tint))
   ]
 
-runProgramTypeCheck :: Program -> String
-runProgramTypeCheck program = case runExcept $ runStateT (runReaderT (checkProgramType program) initialEnv) Data.Map.empty of
-  Right b-> "ok"
-  Left a -> show a
+runProgramTypeCheck :: Program -> Either String ()
+runProgramTypeCheck program =
+  case runExcept $
+    runStateT (runReaderT (checkProgramType program) initialEnv) Data.Map.empty of
+      Right b-> Right ()
+      Left a -> Left a
 
 isVarDeclared :: Var -> TypeCheck Bool
 isVarDeclared v = do
@@ -273,7 +265,7 @@ getVarType v = do
   env <- ask
   let fromLocal = Data.Map.lookup v state
   let fromGlobal = Data.Map.lookup v env
-  maybe (maybe (throwError $ "Undefined var " ++ v) return fromGlobal) return fromLocal
+  maybe (maybe (throwError $ "Undefined identifier: " ++ v) return fromGlobal) return fromLocal
 
 setVarType :: Var -> Mod -> Type -> TypeCheck ()
 setVarType v m t = do

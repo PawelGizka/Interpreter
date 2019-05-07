@@ -1,0 +1,7 @@
+val main = (val args: string[]): void => {
+    printString(doSomething());
+}
+
+val doSomething = (): string => {
+    return 10;
+}

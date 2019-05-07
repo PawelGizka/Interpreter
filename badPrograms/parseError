@@ -1,0 +1,4 @@
+val main = (val args: string[]): void => {
+    printString("hello world, my args:");
+    for val arg : args do printString("arg:  + arg);
+}

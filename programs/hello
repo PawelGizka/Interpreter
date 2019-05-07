@@ -1,3 +1,5 @@
+//sample program, vals, vars, foreach loop over program arguments,
+//using val in foreach loop, arithmetic, print on output,
 val a = "pawel"
 
 val b = 5
@@ -16,6 +18,14 @@ val func2 = (): void => {
 val main = (val args: string[]): void => {
     printString("hello world, my args:");
     for val arg : args do printString("arg: " + arg);
+
+    var someNumber = b*2 - 10 + 4;
+
+    printString("some number " + someNumber);
+
+    val isEqual = someNumber == -4 && c;
+
+    if isEqual then printString("isEqual"); fi
 
     val command = readString();
 

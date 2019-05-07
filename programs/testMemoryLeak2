@@ -21,7 +21,6 @@ val main = (val args: string[]): void => {
     xValue = object1(0, false);
     printInt(xValue);
 
-
     for val i = 0 to 5000000 do {
         val arr = new int[100000];
     }

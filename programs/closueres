@@ -1,3 +1,4 @@
+//closures, static binding,
 val main = (val args: string[]): void => {
     var x = 0;
     val p = (): void => {x = x*2;};

@@ -1,0 +1,9 @@
+//show error about division by zero,
+val main = (val args: string[]): void => {
+    printString("enter to number you want to divide");
+    val a = readInt();
+    val b = readInt();
+
+    printString("result: " + a / b);
+
+}

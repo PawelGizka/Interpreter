@@ -1,3 +1,4 @@
+//handing user input, nice information when user enters string instead of int
 val main = (val args: string[]): void => {
     printString("how many strings to collect?");
 
