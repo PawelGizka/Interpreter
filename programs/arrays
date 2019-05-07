@@ -1,4 +1,4 @@
-//arrays, anonymous functions, nested functions,
+//arrays, anonymous functions, nested functions, for loop, foreach loop
 val main = (val args: string[]): void => {
     val arr = new int[10];
     printInt(arr.length);
@@ -17,16 +17,14 @@ val main = (val args: string[]): void => {
     for val j = 0 to arr.length - 1 do printInt(arr[j]);
 
     val ascending = sortInts(arr, (val a: int, val b: int): int => return a - b;);
-    //for val a : ascending do printInt(a);
 
     printString("Ascending: " );
     for val j = 0 to ascending.length - 1 do printInt(ascending[j]);
 
     val descending = sortInts(arr, (val a: int, val b: int): int => return b - a;);
-    //for val a : descending do printInt(a);
 
     printString("Descending: " );
-    for val j = 0 to descending.length - 1 do printInt(descending[j]);
+    for val a : descending do printInt(a);
 }
 
 val sortInts = (val arr: int[], val compare: fun((int, int) => int)): int[] => {

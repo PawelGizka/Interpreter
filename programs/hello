@@ -26,10 +26,4 @@ val main = (val args: string[]): void => {
     val isEqual = someNumber == -4 && c;
 
     if isEqual then printString("isEqual"); fi
-
-    val command = readString();
-
-    if command == "print" + "Hello" then
-        printString("command print hello");
-    fi
 }
