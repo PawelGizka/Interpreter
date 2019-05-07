@@ -1,5 +1,5 @@
 //sample program, vals, vars, foreach loop over program arguments,
-//using val in foreach loop, arithmetic, print on output,
+//using val in foreach loop, arithmetic, print output,
 val a = "pawel"
 
 val b = 5

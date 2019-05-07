@@ -37,35 +37,35 @@ separator Type "," ;
 separator Arg "," ;
 ADecl.		Arg ::= Mod Ident ":" Type ;	
 
-internal EHi.	Exp15 ::= "(" Exp ")" ;		
+internal EHi.	Exp9 ::= "(" Exp ")" ;
 
-EIdent.		Exp14 ::= Ident ;
-EInt. 		Exp14 ::= Integer ;
-EString.	Exp14 ::= String ;
-ETrue.		Exp14 ::= "true" ;
-EFalse.		Exp14 ::= "false" ;
-EFun.		Exp14 ::= "(" [Arg] ")" ":" Type "=>" Stm ;
-EAppFun.	Exp14 ::= Ident "(" [Exp] ")" ;
-EArrIni.	Exp14 ::= "new" Type "[" Exp "]" ; 
-EArrLen.	Exp14 ::= Ident ".length" ;
-EArrAcc.	Exp14 ::= Ident "[" Exp "]" ;
+EIdent.		Exp8 ::= Ident ;
+EInt. 		Exp8 ::= Integer ;
+EString.	Exp8 ::= String ;
+ETrue.		Exp8 ::= "true" ;
+EFalse.		Exp8 ::= "false" ;
+EFun.		Exp8 ::= "(" [Arg] ")" ":" Type "=>" Stm ;
+EAppFun.	Exp8 ::= Ident "(" [Exp] ")" ;
+EArrIni.	Exp8 ::= "new" Type "[" Exp "]" ;
+EArrLen.	Exp8 ::= Ident ".length" ;
+EArrAcc.	Exp8 ::= Ident "[" Exp "]" ;
 
-ENeg.		Exp13 ::= "-" Exp14 ;
+ENeg.		Exp7 ::= "-" Exp8 ;
 
-EMul. 		Exp12 ::= Exp12 "*" Exp13 ;
-EDiv.		Exp11 ::= Exp11 "/" Exp12 ;
-EPlus. 		Exp10 ::= Exp10 "+" Exp11 ;
-EMinus. 	Exp9 ::= Exp9 "-" Exp10 ;
+EMul. 		Exp6 ::= Exp6 "*" Exp7 ;
+EDiv.		Exp6 ::= Exp6 "/" Exp7 ;
+EPlus. 		Exp5 ::= Exp5 "+" Exp6 ;
+EMinus. 	Exp5 ::= Exp5 "-" Exp6 ;
 
-ENot.		Exp8 ::= "!" Exp9 ;
-ELt.		Exp7 ::= Exp7 ">" Exp8 ;
-EGt.		Exp6 ::= Exp6 "<" Exp7 ;
-EGtEq.		Exp5 ::= Exp5 ">=" Exp6 ;
-ELtEq.		Exp4 ::= Exp4 "<=" Exp5 ;
-EEq.		Exp3 ::= Exp3 "==" Exp4 ;
+ENot.		Exp4 ::= "!" Exp5 ;
+ELt.		Exp3 ::= Exp3 ">" Exp4 ;
+EGt.		Exp3 ::= Exp3 "<" Exp4 ;
+EGtEq.		Exp3 ::= Exp3 ">=" Exp4 ;
+ELtEq.		Exp3 ::= Exp3 "<=" Exp4 ;
+EEq.		Exp2 ::= Exp2 "==" Exp3 ;
 ENeq.		Exp2 ::= Exp2 "!=" Exp3 ;
 EAnd.      	Exp1 ::= Exp1 "&&" Exp2 ;
 EOr.       	Exp ::= Exp "||" Exp1 ;	
 
-coercions Exp 15 ;
+coercions Exp 9 ;
 separator Exp "," ;
