@@ -1,6 +1,6 @@
 //closures, static binding,
 val main = (val args: string[]): void => {
-    var x = 0;
+    var x = 10;
     val p = (): void => {x = x*2;};
     val q = (): void => {p();};
     {
@@ -9,4 +9,5 @@ val main = (val args: string[]): void => {
         q();
         printInt(x);
     }
+    printInt(x);
 }
